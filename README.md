@@ -159,4 +159,6 @@ MIT License —— 可自由使用、修改和分发，转载请注明来源。
 
 ## ⭐ 支持一下
 
-如果这个工具帮到了你，欢迎点一个 **Star** ⭐，本 GitHub Page 为一次性repo，提了 Issue 作者也不看
+如果这个工具帮到了你，欢迎点一个 **Star** ⭐，
+本 GitHub Page 为一次性repo，提了 Issue 作者也不看
+Author：zgyb,yssh
