@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang='zh-CN'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>诉讼费批量计算工具</title>
+<style>
+body{font-family:Arial,'Microsoft YaHei',sans-serif;background:#f5f7fb;margin:0;color:#222}.wrap{max-width:1100px;margin:30px auto;background:#fff;border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.08);padding:24px}h1{text-align:center;margin:0 0 18px}.tips{background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;padding:12px;border-radius:8px;line-height:1.7}.grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:16px}textarea{width:100%;height:220px;box-sizing:border-box;border:1px solid #ccc;border-radius:8px;padding:12px;font-size:15px;line-height:1.6;resize:vertical}button,.filebtn{border:0;border-radius:8px;padding:10px 16px;font-size:15px;cursor:pointer;background:#2563eb;color:#fff;margin:4px 6px 4px 0;display:inline-block}button.secondary,.filebtn{background:#475569}button.danger{background:#dc2626}button.green{background:#16a34a}input[type=file]{display:none}.bar{margin:12px 0}.summary{margin:10px 0;color:#334155}.tablebox{overflow:auto;border:1px solid #ddd;border-radius:8px;margin-top:12px;max-height:520px}table{border-collapse:collapse;width:100%;min-width:760px}th,td{border:1px solid #ddd;padding:8px 10px;text-align:right;white-space:nowrap}th{background:#eef2ff;text-align:center;position:sticky;top:0}td:first-child,td:nth-child(2){text-align:center}.small{font-size:13px;color:#64748b;line-height:1.6}.foot{text-align:center;color:#888;margin-top:18px;font-size:13px}
+</style>
+</head>
+<body>
+<div class='wrap'>
+<h1>诉讼费批量计算工具</h1>
+<div class='tips'>声明：诉讼费计算结果仅作参考，具体以法院收费为准。金额可直接粘贴到文本框，每行一个；也可导入 xlsx、xls、csv、txt、tsv 文件，默认读取第一列中的金额。</div>
+<div class='grid'>
+<div>
+<h3>批量输入金额</h3>
+<textarea id='amounts' placeholder='示例：&#10;1000&#10;50000&#10;200000&#10;1000000'></textarea>
+<div class='small'>说明：支持金额中的逗号、人民币符号和空格，例如 1,000 或 ￥1000。每行取第一个数字作为金额。</div>
+</div>
+</div>
+<div class='bar'>
+<button onclick='calculate()'>计算</button>
+<button class='secondary' onclick='clearAll()'>清空</button>
+<label class='filebtn' for='file'>导入 xlsx / xls / csv / txt</label>
+<input id='file' type='file' accept='.xlsx,.xls,.csv,.txt,.tsv,.html,.htm' onchange='importFile(this.files[0])'>
+<button class='green' onclick='exportXls()'>导出 Excel .xls</button>
+</div>
+<div id='msg' class='summary'>尚未计算。</div>
+<div class='tablebox'>
+<table id='resultTable'>
+<thead><tr><th>序号</th><th>输入金额</th><th>计算受理费用</th><th>计算保全费用</th><th>计算执行费用</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+<div class='small'>注：执行费按照常见分段规则补齐 500万元至1000万元区间：金额 × 0.005 + 27400。</div>
+<div class='foot'>离线版批量诉讼费计算工具</div>
+</div>
+<script>
+let rows=[];
+function cleanAmount(v){v=String(v||'').replace(/[￥¥,，\s]/g,'');let n=parseFloat(v);return isFinite(n)&&n>0?n:null}
+function firstNumber(line){let m=String(line||'').match(/[-+]?\d[\d,，]*(\.\d+)?/);return m?cleanAmount(m[0]):null}
+function fmt(n){if(n===null||n===undefined||n==='')return'';let s=(Math.round(Number(n)*100)/100).toFixed(2);return s.replace(/\.00$/,'').replace(/(\.\d)0$/,'$1')}
+function feeAccept(n){let r=0;if(n>0&&n<=10000)r=50;else if(n>10000&&n<=100000)r=n*.025-200;else if(n>100000&&n<=200000)r=n*.02+300;else if(n>200000&&n<=500000)r=n*.015+1300;else if(n>500000&&n<=1000000)r=n*.01+3800;else if(n>1000000&&n<=2000000)r=n*.009+4800;else if(n>2000000&&n<=5000000)r=n*.008+6800;else if(n>5000000&&n<=10000000)r=n*.007+11800;else if(n>10000000&&n<=20000000)r=n*.006+21800;else if(n>20000000)r=n*.005+41800;return r}
+function feePreserve(n){let r=0;if(n>0&&n<=1000)r=30;else if(n>1000&&n<=100000)r=n*.01+20;else if(n>100000)r=n*.005+520;if(r>=5000)r=5000;return r}
+function feeExecute(n){let r=0;if(n>0&&n<10000)r=50;else if(n>=10000&&n<=500000)r=n*.015-100;else if(n>500000&&n<=5000000)r=n*.01+2400;else if(n>5000000&&n<=10000000)r=n*.005+27400;else if(n>10000000)r=n*.001+67400;return r}
+function parseTextInput(t){let out=[];String(t||'').split(/\r?\n/).forEach(line=>{let n=firstNumber(line);if(n!==null)out.push(n)});return out}
+function calculate(){let nums=parseTextInput(document.getElementById('amounts').value);rows=nums.map((n,i)=>({i:i+1,amount:n,accept:feeAccept(n),preserve:feePreserve(n),execute:feeExecute(n)}));render()}
+function render(){let tb=document.querySelector('#resultTable tbody');tb.innerHTML='';let html='';rows.forEach(r=>{html+='<tr><td>'+r.i+'</td><td>'+fmt(r.amount)+'</td><td>'+fmt(r.accept)+'</td><td>'+fmt(r.preserve)+'</td><td>'+fmt(r.execute)+'</td></tr>'});tb.innerHTML=html;document.getElementById('msg').textContent=rows.length?'已计算 '+rows.length+' 条金额。':'没有可计算的金额。'}
+function clearAll(){document.getElementById('amounts').value='';rows=[];render()}
+function exportXls(){if(!rows.length){alert('请先计算后再导出');return}let table='<table border=1><tr><th>序号</th><th>输入金额</th><th>计算受理费用</th><th>计算保全费用</th><th>计算执行费用</th></tr>';rows.forEach(r=>{table+='<tr><td>'+r.i+'</td><td>'+fmt(r.amount)+'</td><td>'+fmt(r.accept)+'</td><td>'+fmt(r.preserve)+'</td><td>'+fmt(r.execute)+'</td></tr>'});table+='</table>';let html='<html><head><meta charset=utf-8></head><body>'+table+'</body></html>';let blob=new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8'});download(blob,'诉讼费批量计算结果.xls')}
+function download(blob,name){let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
+async function importFile(file){if(!file)return;let name=file.name.toLowerCase();try{let nums=[];if(name.endsWith('.xlsx')){nums=await readXlsxFirstColumn(file)}else{let text=await file.text();nums=readTextTableFirstColumn(text)}if(!nums.length){alert('未读取到有效金额。请确认金额在第一列。');return}document.getElementById('amounts').value=nums.join('\n');calculate()}catch(e){alert('导入失败：'+e.message+'。如为老式二进制 xls，请另存为 xlsx 或 csv 后再导入。')}}
+function readTextTableFirstColumn(text){let nums=[];let doc=null;if(/<table[\s\S]*?>/i.test(text)){doc=new DOMParser().parseFromString(text,'text/html');doc.querySelectorAll('tr').forEach(tr=>{let c=tr.querySelector('td,th');if(c){let n=firstNumber(c.textContent);if(n!==null)nums.push(n)}});return nums}String(text||'').split(/\r?\n/).forEach(line=>{let first=line.split(/\t|,|;/)[0];let n=firstNumber(first);if(n!==null)nums.push(n)});return nums}
+async function readXlsxFirstColumn(file){let ab=await file.arrayBuffer();let files=await unzip(ab);let shared=[];if(files['xl/sharedStrings.xml']){let x=parseXml(files['xl/sharedStrings.xml']);x.querySelectorAll('si').forEach(si=>shared.push(si.textContent||''))}let wb=parseXml(files['xl/workbook.xml']);let sheet=wb.querySelector('sheet');if(!sheet)throw Error('未找到工作表');let rid=sheet.getAttribute('r:id')||sheet.getAttribute('id');let rels=parseXml(files['xl/_rels/workbook.xml.rels']);let target='worksheets/sheet1.xml';rels.querySelectorAll('Relationship').forEach(r=>{if(r.getAttribute('Id')===rid)target=r.getAttribute('Target')});let path=target.charAt(0)==='/'?target.slice(1):'xl/'+target;path=path.replace(/\/\.\//g,'/');if(!files[path])throw Error('未找到第一个工作表数据');let sx=parseXml(files[path]);let nums=[];sx.querySelectorAll('sheetData row').forEach(row=>{let cells=[...row.querySelectorAll('c')];let cell=cells.find(c=>/^A\d*$/i.test(c.getAttribute('r')||''))||cells[0];if(cell){let v=cellValue(cell,shared);let n=firstNumber(v);if(n!==null)nums.push(n)}});return nums}
+function cellValue(c,shared){let t=c.getAttribute('t');if(t==='inlineStr'){let e=c.querySelector('is t');return e?e.textContent:''}let v=c.querySelector('v');let s=v?v.textContent:'';if(t==='s')return shared[parseInt(s,10)]||'';return s}
+function parseXml(s){return new DOMParser().parseFromString(s,'application/xml')}
+async function unzip(ab){let u=new Uint8Array(ab),dv=new DataView(ab),eocd=-1;for(let i=u.length-22;i>=0&&i>u.length-70000;i--){if(dv.getUint32(i,true)===0x06054b50){eocd=i;break}}if(eocd<0)throw Error('不是有效的 xlsx 文件');let count=dv.getUint16(eocd+10,true),pos=dv.getUint32(eocd+16,true),dec=new TextDecoder(),out={};for(let k=0;k<count;k++){if(dv.getUint32(pos,true)!==0x02014b50)break;let method=dv.getUint16(pos+10,true),cs=dv.getUint32(pos+20,true),nl=dv.getUint16(pos+28,true),el=dv.getUint16(pos+30,true),cl=dv.getUint16(pos+32,true),lho=dv.getUint32(pos+42,true);let name=dec.decode(u.slice(pos+46,pos+46+nl));let lnl=dv.getUint16(lho+26,true),lel=dv.getUint16(lho+28,true),start=lho+30+lnl+lel;let data=u.slice(start,start+cs);if(method===8)data=new Uint8Array(await inflateRaw(data));else if(method!==0)throw Error('不支持的压缩格式');out[name]=dec.decode(data);pos+=46+nl+el+cl}return out}
+async function inflateRaw(data){if(!('DecompressionStream' in window))throw Error('当前浏览器不支持离线解压 xlsx，请使用新版 Chrome、Edge 或 Safari');let ds=new DecompressionStream('deflate-raw');let stream=new Blob([data]).stream().pipeThrough(ds);return await new Response(stream).arrayBuffer()}
+render();
+</script>
+</body>
+</html>
